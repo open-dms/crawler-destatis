@@ -3,7 +3,7 @@ import {
   Entity,
   EntityState,
   EntitySortFunction,
-} from "./EntityStream";
+} from "./entity";
 
 jest.useFakeTimers();
 jest.setSystemTime(1);

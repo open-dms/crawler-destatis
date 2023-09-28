@@ -1,6 +1,6 @@
 import { pipeline } from "node:stream/promises";
-import { EntityStream } from "./EntityStream";
 import { request, response } from "./destatis";
+import { EntityStream } from "./entity";
 import { FetchStream } from "./fetch";
 import { jsonl, split } from "./util";
 
