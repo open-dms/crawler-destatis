@@ -1,14 +1,12 @@
 import { randomUUID } from "crypto";
 import { Logger } from "pino";
-import { Transform, TransformOptions } from "stream";
+import { Duplex } from "stream";
 import { logger } from "./logger";
 
 export enum EntityState {
-  New = 0,
+  Ready = 0,
   Enqueued = 1,
   Done = 2,
-  Failed = 3,
-  Retrying = 4,
 }
 
 export interface Entity<T> {
@@ -18,21 +16,17 @@ export interface Entity<T> {
   lastUpdate?: Date;
 }
 
-export class EntityStream<T> extends Transform {
-  logger: Logger;
-  buffer: Array<Entity<T>> = [];
-  criteria: (entity: Entity<T>) => boolean;
+export type EntitySortFunction<T> = (a: Entity<T>, b: Entity<T>) => -1 | 0 | 1;
 
-  constructor({
-    criteria,
-    ...options
-  }: TransformOptions & {
-    criteria: (entity: Entity<T>) => boolean;
-  }) {
-    super({ ...options, objectMode: true });
+export class EntityStream<T> extends Duplex {
+  private logger: Logger;
+  private sort: EntitySortFunction<T>;
+  private buffer: Array<Entity<T>> = [];
+
+  constructor({ sort }: { sort: EntitySortFunction<T> }) {
+    super({ objectMode: true });
     this.logger = logger.child({ context: this.constructor.name });
-    this.buffer = [];
-    this.criteria = criteria;
+    this.sort = sort;
   }
 
   async _write(
@@ -43,39 +37,57 @@ export class EntityStream<T> extends Transform {
     this.buffer.push({
       id: randomUUID(),
       data,
-      state: EntityState.New,
+      state: EntityState.Ready,
+      lastUpdate: new Date(),
     });
     callback();
   }
 
   _read() {
-    const entity = this.next();
+    const readyEntities = this.buffer
+      .filter((e) => e.state === EntityState.Ready)
+      .toSorted(this.sort);
 
-    if (!entity) {
-      this.logger.warn("No entity found, ending stream");
-      return this.push(null);
-    }
+    if (!readyEntities.length) {
+      const allDone = this.buffer.every((e) => e.state === EntityState.Done);
 
-    this.push(entity);
-  }
+      if (allDone) {
+        this.logger.info("All entities done, ending stream");
+        this.push(null);
+        return;
+      }
 
-  private next(): Entity<T> | undefined {
-    const entity = this.buffer
-      .filter(
-        (entity) =>
-          ![EntityState.Enqueued, EntityState.Retrying].includes(entity.state)
-      )
-      .find(this.criteria);
-
-    if (!entity) {
+      this.logger.debug("No ready entities at the moment");
       return;
     }
 
-    entity.state =
-      entity.state === EntityState.New
-        ? EntityState.Enqueued
-        : EntityState.Retrying;
+    const entity = readyEntities[0];
+    entity.state = EntityState.Enqueued;
+    this.push(entity);
+  }
 
-    return entity;
+  update(
+    entity: Entity<T>,
+    { data, state = EntityState.Ready }: { state?: EntityState; data?: T }
+  ) {
+    this.logger.debug({ msg: `updating entity ${entity.id}`, entity, state });
+
+    this.buffer = this.buffer.map((item) => {
+      if (item.id !== entity.id) {
+        return item;
+      }
+      return {
+        ...item,
+        data: data || entity.data,
+        state: state,
+        lastUpdate: new Date(),
+      };
+    });
+
+    this._read();
+  }
+
+  done(entity: Entity<T>) {
+    this.update(entity, { state: EntityState.Done });
   }
 }
