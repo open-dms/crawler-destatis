@@ -1,3 +1,16 @@
-console.error("not implemented yet");
+import { pipeline } from "node:stream/promises";
+import { EntityStream } from "./EntityStream";
+import { request, response } from "./destatis";
+import { FetchStream } from "./fetch";
+import { jsonl, split } from "./util";
 
-process.exit(1);
+pipeline(
+  process.stdin,
+  split,
+  new EntityStream(),
+  request,
+  new FetchStream(),
+  response,
+  jsonl,
+  process.stdout
+);

@@ -23,10 +23,10 @@ export class EntityStream<T> extends Duplex {
   private sort: EntitySortFunction<T>;
   private buffer: Array<Entity<T>> = [];
 
-  constructor({ sort }: { sort: EntitySortFunction<T> }) {
+  constructor(options?: { sort?: EntitySortFunction<T> }) {
     super({ objectMode: true });
     this.logger = logger.child({ context: this.constructor.name });
-    this.sort = sort;
+    this.sort = options?.sort || ((a, b) => 1);
   }
 
   async _write(
@@ -34,13 +34,15 @@ export class EntityStream<T> extends Duplex {
     _enc: BufferEncoding,
     callback: (error?: Error | null | undefined) => void
   ): Promise<void> {
+    this.logger.debug({ msg: "creating entity", data });
     this.buffer.push({
       id: randomUUID(),
       data,
       state: EntityState.Ready,
       lastUpdate: new Date(),
     });
-    callback();
+    callback(null);
+    this._read();
   }
 
   _read() {
@@ -51,7 +53,7 @@ export class EntityStream<T> extends Duplex {
     if (!readyEntities.length) {
       const allDone = this.buffer.every((e) => e.state === EntityState.Done);
 
-      if (allDone) {
+      if (this.buffer.length > 0 && allDone) {
         this.logger.info("All entities done, ending stream");
         this.push(null);
         return;
