@@ -1,7 +1,7 @@
 import HTMLParser from "node-html-parser";
 import { Transform } from "node:stream";
-import { Entity } from "./EntityStream";
-import { endpoint } from "./config";
+import { Entity } from "./entity";
+import { endpoint } from "../config";
 
 const localityFields = [
   "Bundesland",

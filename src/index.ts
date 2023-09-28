@@ -1,8 +1,8 @@
 import { pipeline } from "node:stream/promises";
-import { request, response } from "./destatis";
-import { EntityStream } from "./entity";
-import { FetchStream } from "./fetch";
-import { jsonl, split } from "./util";
+import { request, response } from "./stream/destatis";
+import { EntityStream } from "./stream/entity";
+import { FetchStream } from "./stream/fetch";
+import { jsonl, split } from "./stream/util";
 
 pipeline(
   process.stdin,

@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { Logger } from "pino";
 import { Duplex } from "stream";
-import { logger } from "./logger";
+import { logger } from "../logger";
 
 export enum EntityState {
   Ready = 0,
