@@ -1,8 +1,8 @@
 import {
-  EntityStream,
   Entity,
-  EntityState,
   EntitySortFunction,
+  EntityState,
+  EntityStream,
 } from "./entity";
 
 jest.useFakeTimers();

@@ -1,10 +1,10 @@
 import { Transform } from "node:stream";
 import { Logger } from "pino";
 import { logger } from "../logger";
+import { Entity } from "./entity";
 
 export class FetchStream extends Transform {
   logger: Logger;
-  fetchCount = 0;
 
   constructor() {
     super({ objectMode: true });
@@ -12,19 +12,20 @@ export class FetchStream extends Transform {
   }
 
   async _transform(
-    request: Request,
+    { entity, request }: { entity: Entity; request: Request },
     _enc: BufferEncoding,
     callback: (error?: Error | null | undefined) => void
   ) {
+    const start = Date.now();
+
+    let error = null;
     try {
-      const start = Date.now();
-      this.fetchCount++;
-      this.push(await fetch(request));
-      this.fetchCount--;
-      const responseTime = Date.now() - start;
-      callback();
+      const response = await fetch(request);
+      this.push({ entity, response, responseTime: Date.now() - start });
     } catch (err) {
-      callback(err instanceof Error ? err : new Error(String(err)));
+      error = err instanceof Error ? err : new Error(String(err));
     }
+
+    callback(error);
   }
 }

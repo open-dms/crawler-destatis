@@ -17,26 +17,6 @@ const localityFields = [
   "Einwohner",
 ];
 
-export const request = new Transform({
-  objectMode: true,
-  transform(entity: Entity<string>, _, callback) {
-    const url = new URL(endpoint);
-    const body = new URLSearchParams();
-    body.append("mi_search", String(entity.data));
-    body.append("form_id", "municipality_index_search");
-    this.push(
-      new Request(url, {
-        method: "post",
-        headers: {
-          "Content-type": "application/x-www-form-urlencoded",
-        },
-        body,
-      })
-    );
-    callback(null);
-  },
-});
-
 function parseLocalityData(data: string) {
   const root = HTMLParser.parse(data).removeWhitespace();
   return root.querySelectorAll(".list-group").map((group) =>
@@ -52,15 +32,40 @@ function filterLocalityFields(localityFields: Array<string>) {
     group.filter(([key, value]) => localityFields.includes(key));
 }
 
+export const request = new Transform({
+  objectMode: true,
+  transform(entity: Entity<string>, _, callback) {
+    const url = new URL(endpoint);
+    const body = new URLSearchParams();
+    body.append("mi_search", String(entity.data));
+    body.append("form_id", "municipality_index_search");
+    this.push({
+      entity,
+      request: new Request(url, {
+        method: "post",
+        headers: {
+          "Content-type": "application/x-www-form-urlencoded",
+        },
+        body,
+      }),
+    });
+    callback(null);
+  },
+});
+
 export const response = new Transform({
   objectMode: true,
-  transform: async (response: Response, _, callback) => {
+  transform: async (
+    { entity, response }: { entity: Entity; response: Response },
+    _,
+    callback
+  ) => {
     const { data } = JSON.parse(await response.text())[0];
-    callback(
-      null,
-      parseLocalityData(data)
+    callback(null, {
+      entity,
+      data: parseLocalityData(data)
         .flatMap(filterLocalityFields(localityFields))
-        .reduce((line, [key, value]) => ({ ...line, [key]: value }), {})
-    );
+        .reduce((line, [key, value]) => ({ ...line, [key]: value }), {}),
+    });
   },
 });

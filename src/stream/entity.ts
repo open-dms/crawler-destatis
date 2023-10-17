@@ -9,7 +9,7 @@ export enum EntityState {
   Done = 2,
 }
 
-export interface Entity<T> {
+export interface Entity<T = unknown> {
   id: string;
   data: T;
   state: EntityState;
