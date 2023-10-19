@@ -60,8 +60,22 @@ export const response = new Transform({
     _,
     callback
   ) => {
-    const { data } = JSON.parse(await response.text())[0];
-    callback(null, {
+    let data;
+    let error;
+    try {
+      data = JSON.parse(await response.text())[0].data;
+    } catch (err) {
+      error = new Error(
+        `Error parsing response for this entity: ${JSON.stringify(entity)}`,
+        {
+          cause: {
+            err: err instanceof Error ? err : new Error(String(err)),
+            entity,
+          },
+        }
+      );
+    }
+    callback(error, {
       entity,
       data: parseLocalityData(data)
         .flatMap(filterLocalityFields(localityFields))

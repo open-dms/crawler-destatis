@@ -1,18 +1,18 @@
 import { pipeline } from "node:stream/promises";
+import { logger } from "./logger";
 import { request, response } from "./stream/destatis";
 import { EntityStream } from "./stream/entity";
-import { FetchStream } from "./stream/fetch";
-import { extractData, jsonl, split } from "./stream/util";
+import { fetcher } from "./stream/fetcher";
 import { TimerStream } from "./stream/timer";
-import { logger } from "./logger";
+import { extractData, jsonParse, jsonl, split } from "./stream/util";
 
 const entities = new EntityStream();
-const timer = new TimerStream({ throttleTime: 1500 });
-const fetcher = new FetchStream();
+const timer = new TimerStream({ throttleTime: 300 });
 
 pipeline(
   process.stdin,
-  split,
+  split("\n"),
+  jsonParse,
   entities,
   request,
   timer,
@@ -21,7 +21,9 @@ pipeline(
   extractData,
   jsonl,
   process.stdout
-);
+)
+  .then(() => logger.info("Pipeline succeeded"))
+  .catch((err: Error) => logger.error({ msg: "Pipeline failed", err }));
 
 fetcher.on("data", ({ responseTime }) => {
   logger.info({ msg: "fetching done", responseTime });
